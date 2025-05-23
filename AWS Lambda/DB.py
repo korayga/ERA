@@ -25,6 +25,7 @@ class DB:
 
     # pk sk göndererek belirli veriyi getirir
     def get(self,pk,sk):
+        
         response = self.table.get_item(Key={self.pk: pk, self.sk : sk})
         return response.get('Item',None)
     
@@ -39,8 +40,10 @@ class DB:
             KeyConditionExpression=Key(self.pk).eq(pk) & Key(self.sk).begins_with(sk)
         )
         return response.get('Items', None)
-
-
+    
+    
+    # keye {"pk": pk, "sk": sk} veriyosun
+    # {"id" : 2}
     def update_item(self,key, updates):
         
         update_expression = "SET "
