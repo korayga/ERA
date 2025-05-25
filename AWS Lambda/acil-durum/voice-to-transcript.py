@@ -7,9 +7,8 @@ from decimal import Decimal
 # AWS clientlar
 s3 = boto3.client('s3')
 transcribe = boto3.client('transcribe')
-bedrock = boto3.client('bedrock-runtime', region_name='us-east-1')
 
-BUCKET_NAME = 'deprem-data'
+BUCKET_NAME = 'deprem-veri'
 
 # Decimal encoder
 class DecimalEncoder(json.JSONEncoder):

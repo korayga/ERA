@@ -3,14 +3,14 @@ import time
 import boto3
 import base64
 from decimal import Decimal
-from db import DB
+
 import uuid
 import traceback
 
 # AWS clientlar
 s3 = boto3.client('s3')
 
-BUCKET_NAME = 'deprem-data'
+BUCKET_NAME = 'deprem-veri'
 
 # Decimal encoder
 class DecimalEncoder(json.JSONEncoder):
@@ -38,7 +38,6 @@ class ExceptionWithStatusCode(Exception):
         super().__init__(sebeb)
         self.statusCode = statusCode
 
-db = DB("pk","sk","deprem",100)
 
 def handler(event):
 

@@ -68,21 +68,29 @@ db = DB("pk","sk","deprem",100)
 
 # Lambda Handler
 def lambda_handler(event : dict, context):
-  
-    precision = 32
+
+    precision = 6
     method = event.get('httpMethod')
     try:
         user_id = event.get('requestContext',{}).get('authorizer',{}).get('claims',{}).get('sub')  #claim altındaki cogento usernama çekme
 
         if method == 'POST':
-            body = json.loads(event.get('body', '{}'))
-            lat, lng = float(body['lat']), float(body['lng'])
+            body = event.get('body', '{}')
+            print("body: ",body)
+            try:
+                body = json.loads(body)
+            except Exception:
+                pass
+
+            
+
+            lat, lng = Decimal(str(body['lat'])), Decimal(str(body['lng']))
             point_type = PointType.from_string(body.get('type'))
             description=body["description"]
-            ts = int(datetime.utcnow().timestamp() * 1000)
+            ts = int(datetime.now().timestamp())  # milisaniye cinsinden timestamp
 
             # Geohash hesapla ve prefix sakla
-            geohash = encode_geohash(lat, lng)
+            geohash = encode_geohash(lat, lng,precision = 6)
 
             # Partition key: POINT
             pk = "POINT" # point tablosunda işlem yapıyoruz
@@ -96,7 +104,8 @@ def lambda_handler(event : dict, context):
                 'lat': Decimal(str(lat)),
                 'lng': Decimal(str(lng)),
                 'type': point_type,
-                'description':description
+                'description':description,
+                'timestamp': ts
             }
             respond = db.save(item)
             return generate_respond(respond, "Saved successfully", 200)
@@ -106,6 +115,10 @@ def lambda_handler(event : dict, context):
             lat = float(params['lat'])
             lng = float(params['lng'])
             radius = int(params['radius']) # client'den istediğimiz yarı çap
+
+            if radius >= 6:
+                raise ExceptionWithStatusCode("radius 6'dan büyük veya eşit olamaz", 400)
+
             # Merkez hash ve prefix
             print(f"{lat} {lng} noktasından {radius} yarıçapında veri isteniyor")
 

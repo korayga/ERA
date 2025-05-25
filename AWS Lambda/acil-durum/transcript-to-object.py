@@ -10,12 +10,12 @@ from db import DB
 s3 = boto3.client('s3')
 bedrock_runtime = boto3.client(
     service_name='bedrock-runtime',
-    region_name='us-east-1'  # Claude'un mevcut olduğu region
+    region_name='eu-central-1'  # Claude'un mevcut olduğu region
 )
 
 db = DB("pk", "sk", "deprem", 100)
 
-BUCKET_NAME = 'deprem-data'
+BUCKET_NAME = 'deprem-veri'
 
 def call_claude(transcript_text):
     prompt = f"""
@@ -74,7 +74,7 @@ def get_location_from_s3(filename):
             "lng": Decimal(str(location_json.get('lng', 0)))}
 
 def lambda_handler(event, context):
-
+    precision = 6
     # yeni gelen transkript dosyasını S3'ten al
     bucket = event['Records'][0]['s3']['bucket']['name']
     transcript_path : str = event['Records'][0]['s3']['object']['key']
@@ -100,7 +100,7 @@ def lambda_handler(event, context):
     print("last location: ", lastLocation)
     lat = lastLocation["lat"]
     lng = lastLocation["lng"]
-    geohash = encode_geohash(lat, lng)
+    geohash = encode_geohash(lat, lng,precision)
 
     pk = "POINT"
     sk = f"{geohash}#{emergency_id}"
