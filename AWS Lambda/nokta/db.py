@@ -3,7 +3,7 @@ from decimal import Decimal
 from boto3.dynamodb.conditions import Key
 
 
-dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+dynamodb = boto3.resource('dynamodb', region_name='eu-central-1')
 
 # kendi yazmış olduğum DB ile veri yazıp okumak için bir class
 class DB:
@@ -36,6 +36,7 @@ class DB:
     # pk = "ADANA" sk : "YİYECEK_YARDIM#125341"
     # mesela "ADANA" pk'sını vererek ardından sk nın başlangıcını "BINA_YIKIM" olarak verirsek adana içindeki yıkılan binaları verir
     def getBeginsWith(self,pk,sk):
+        print(f"Partition Key:{pk}, sk'sı {sk} ile başlayanlar aranıyor")
         response = self.table.query(
             KeyConditionExpression=Key(self.pk).eq(pk) & Key(self.sk).begins_with(sk)
         )

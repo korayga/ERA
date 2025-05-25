@@ -1,7 +1,7 @@
 # Basit Geohash Encode Fonksiyonu
 _base32 = '0123456789bcdefghjkmnpqrstuvwxyz'
 
-def encode_geohash(lat, lon, precision=6):
+def encode_geohash(lat, lon, precision=32):
     lat_interval, lon_interval = [-90.0, 90.0], [-180.0, 180.0]
     geohash = []
     is_even, bit, ch = True, 0, 0
