@@ -5,76 +5,94 @@ import { Amplify } from 'aws-amplify';
 import { Hub, type HubCapsule } from 'aws-amplify/utils';
 import { getCurrentUser, fetchAuthSession } from 'aws-amplify/auth';
 import config from './src/config/aws-exports';
-import { AuthProvider, useAuth } from './src/screens/AuthScreen';
+import { AuthProvider, useAuth } from './src/screens/AuthScreen'; // AuthScreen'in useAuth ve AuthProvider'ı dışa aktardığını varsayıyoruz
 import AppNavigator from './src/navigation/AppNavigator';
+import { TokenManager } from './types/TokenManager'; // TokenManager'ın doğru şekilde uygulandığını varsayıyoruz
 
+// Amplify'ı uygulamanın en üst seviyesinde yapılandırın
 Amplify.configure(config);
 
-const App: React.FC = () => {
+/**
+ * AuthAwareAppContent Bileşeni
+ * Bu bileşen, AuthProvider içinde render edilir ve kimlik doğrulama bağlamına erişebilir.
+ * Uygulamanın başlangıç yükleme durumunu ve kimlik doğrulama olaylarını yönetir.
+ */
+const AuthAwareAppContent: React.FC = () => {
+  // Yükleme durumunu yönetmek için yerel state
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const checkCurrentUser = useCallback(async (setTokens: (accessToken: string, idToken: string) => void, setUser: (user: any) => void) => {
-    console.log('App.tsx: checkCurrentUser called');
-    setIsLoading(true);
+  // AuthContext'ten global kimlik doğrulama durumunu ve güncelleyicilerini al
+  const { setUser, setTokens, clearAuth } = useAuth();
+
+  /**
+   * Amplify ile mevcut kullanıcı oturumunu kontrol eder.
+   * Oturum durumuna göre AuthContext ve TokenManager'ı günceller.
+   */
+  const checkCurrentUser = useCallback(async () => {
+    setIsLoading(true); // Yükleme durumunu başlat
     try {
       const authUserResponse = await getCurrentUser();
       const session = await fetchAuthSession();
-      const accessToken = session.tokens?.accessToken?.toString();
-      const idToken = session.tokens?.idToken?.toString();
+      const newAccessToken = session.tokens?.accessToken?.toString();
+      const newIdToken = session.tokens?.idToken?.toString();
 
-      if (accessToken && idToken && authUserResponse) {
-        setTokens(accessToken, idToken);
+      if (newAccessToken && newIdToken && authUserResponse) {
+        setTokens(newAccessToken, newIdToken);
+        TokenManager.setIdToken(newIdToken); // TokenManager'ı güncelle
         setUser({ username: authUserResponse.username });
-        console.log('App.tsx: Current user found:', authUserResponse.username, authUserResponse.userId);
+      } else {
+        clearAuth(); // AuthContext'i temizle
+        TokenManager.setIdToken(null); // TokenManager'ı temizle
       }
     } catch (error) {
-      console.log('App.tsx: No user session or error:', error);
+      clearAuth(); // Hata durumunda AuthContext'i temizle
+      TokenManager.setIdToken(null); // Hata durumunda TokenManager'ı temizle
     } finally {
-      setIsLoading(false);
-      console.log('App.tsx: checkCurrentUser completed, isLoading:', false);
+      setIsLoading(false); // Yükleme durumunu tamamla
     }
-  }, []);
+  }, [setUser, setTokens, clearAuth]); // useCallback için bağımlılıklar
 
+  /**
+   * Amplify Hub dinleyicisini kurmak ve temizlemek için useEffect hook'u.
+   * Ayrıca bileşen yüklendiğinde başlangıç checkCurrentUser çağrısını tetikler.
+   */
   useEffect(() => {
-    const hubListenerCancel = Hub.listen(
-      'auth',
-      (capsule: HubCapsule<'auth', any>) => {
-        const { payload } = capsule;
-        console.log('App.tsx: Auth event received:', payload.event, payload.data);
+    // Amplify Hub'dan kimlik doğrulama olaylarını dinle
+    const hubListenerCancel = Hub.listen('auth', (capsule: HubCapsule<'auth', any>) => {
+      const { payload } = capsule;
 
-        switch (payload.event) {
-          case 'signedIn':
-          case 'autoSignIn':
-            console.log('App.tsx: signedIn or autoSignIn event, calling checkCurrentUser');
-            // AuthProvider içindeki setTokens ve setUser'a erişmek için useAuth kullanılamaz,
-            // bu yüzden checkCurrentUser çağrısında setTokens ve setUser fonksiyonlarını manuel olarak geçiyoruz
-            break;
-          case 'signedOut':
-            console.log('App.tsx: signedOut event, user set to null');
-            break;
-          case 'signIn_failure':
-          case 'signUp_failure':
-          case 'confirmSignUp_failure':
-          case 'autoSignIn_failure':
-            console.error(`App.tsx: ${payload.event} error:`, payload.data);
-            break;
-        }
+      switch (payload.event) {
+        case 'signedIn':
+        case 'autoSignIn':
+          checkCurrentUser();
+          break;
+        case 'signedOut':
+          clearAuth(); // AuthContext durumunu temizle
+          TokenManager.setIdToken(null); // TokenManager'ı temizle
+          break;
+        case 'signIn_failure':
+        case 'signUp_failure':
+        case 'confirmSignUp_failure':
+        case 'autoSignIn_failure':
+          console.error(`AuthAwareAppContent: ${payload.event} error:`, payload.data);
+          clearAuth(); 
+          TokenManager.setIdToken(null); 
+          break;
+        default:          
+          break;
       }
-    );
-
-    console.log('App.tsx: Initial useEffect, calling checkCurrentUser');
-    // AuthProvider içindeki setTokens ve setUser'a erişmek için bir geçici çözüm
-    const tempAuthContext = { setTokens: () => {}, setUser: () => {} };
-    checkCurrentUser(tempAuthContext.setTokens, tempAuthContext.setUser);
+    });
+    
+    checkCurrentUser();
 
     return () => {
-      console.log('App.tsx: Removing Hub listener');
+      
       hubListenerCancel();
     };
-  }, [checkCurrentUser]);
+  }, [checkCurrentUser, clearAuth]); // useEffect için bağımlılıklar
 
+  // Kimlik doğrulama devam ederken bir yükleme göstergesi render et
   if (isLoading) {
-    console.log('App.tsx: Showing loading screen...');
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
@@ -82,14 +100,24 @@ const App: React.FC = () => {
     );
   }
 
-  console.log('App.tsx: Rendering AppNavigator');
+  return <AppNavigator />;
+};
+
+/**
+ * App Component
+ * Uygulamanın kök bileşeni.
+ * AuthProvider'ı render eder ve AuthAwareAppContent'i içine yerleştirir.
+ */
+const App: React.FC = () => {
   return (
     <AuthProvider>
-      <AppNavigator />
+      {/* AuthAwareAppContent, AuthProvider'ın çocuğu olduğu için useAuth hook'unu güvenle kullanabilir */}
+      <AuthAwareAppContent />
     </AuthProvider>
   );
 };
 
+// Yükleme kapsayıcısı için stiller
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,

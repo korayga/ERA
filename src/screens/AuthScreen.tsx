@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { View, TextInput, Button, Text, Alert, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { signUp, signIn, confirmSignUp, resendSignUpCode, fetchAuthSession } from 'aws-amplify/auth';
+// src/screens/AuthScreen.tsx
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { View, TextInput, Text, Alert, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { signUp, signIn, confirmSignUp, resendSignUpCode, fetchAuthSession, signOut } from 'aws-amplify/auth'; // signOut'ı ekledik
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/types';
+import { TokenManager } from '../../types/TokenManager';
 
 type AuthScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -10,42 +12,94 @@ interface AuthScreenProps {
   navigation: AuthScreenNavigationProp;
 }
 
+// AuthContext'in tipini tanımlayın
 interface AuthContextType {
   accessToken: string | null;
   idToken: string | null;
   user: any | null;
   setTokens: (accessToken: string, idToken: string) => void;
   setUser: (user: any) => void;
+  clearAuth: () => void; // clearAuth metodunu buraya ekliyoruz
 }
 
+// AuthContext'i oluşturun, varsayılan değerler null veya boş fonksiyonlar
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * AuthProvider bileşeni, kimlik doğrulama durumunu yönetir ve AuthContext aracılığıyla sağlar.
+ * @param {object} props - Bileşen özellikleri.
+ * @param {ReactNode} props.children - Sağlayıcının alt bileşenleri.
+ */
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [idToken, setIdToken] = useState<string | null>(null);
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUserState] = useState<any | null>(null); // setUser'ın çakışmaması için setUserState olarak değiştirdik
 
-  const setTokens = (newAccessToken: string, newIdToken: string) => {
+  // Kullanıcı ve belirteçleri ayarlamak için fonksiyon
+  const setTokens = useCallback((newAccessToken: string, newIdToken: string) => {
     setAccessToken(newAccessToken);
     setIdToken(newIdToken);
+    // TokenManager'ı burada da güncelleyebilirsiniz, ancak App.tsx'te zaten yapılıyor.
+    // TokenManager.setIdToken(newIdToken); // App.tsx'te zaten yapıldığı için burada yorum satırı yaptık
+  }, []);
+
+  // Kullanıcı bilgisini ayarlamak için fonksiyon
+  const setUser = useCallback((userData: any) => {
+    setUserState(userData);
+  }, []);
+
+  // Kimlik doğrulama durumunu temizlemek için fonksiyon
+  const clearAuth = useCallback(() => {
+    setUserState(null);
+    setAccessToken(null);
+    setIdToken(null);
+    TokenManager.setIdToken(null); // TokenManager'ı da temizle
+  }, []);
+
+  // Bağlam değerini oluşturun
+  const contextValue = {
+    accessToken,
+    idToken,
+    user,
+    setTokens,
+    setUser,
+    clearAuth, // clearAuth'ı bağlam değerine dahil edin
   };
 
   return (
-    <AuthContext.Provider value={{ accessToken, idToken, user, setTokens, setUser }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => {
+/**
+ * useAuth hook'u, AuthContext'e erişim sağlar.
+ * Bileşenlerin kimlik doğrulama durumuna ve fonksiyonlarına kolayca erişmesini sağlar.
+ * @returns {AuthContextType} Kimlik doğrulama bağlamı değerleri.
+ * @throws {Error} AuthProvider içinde kullanılmadığında hata fırlatır.
+ */
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) { // !context yerine undefined kontrolü daha güvenlidir
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
 
 const AuthScreen: React.FC<AuthScreenProps> = ({ navigation }) => {
+  // AuthContext'ten gerekli değerleri ve fonksiyonları alıyoruz
+  const { setTokens, setUser, idToken, user } = useAuth(); // idToken ve user'ı da buradan alıyoruz
+
+  // AuthScreen'in kendi yerel state'leri
+  // Artık AuthContext'ten gelen user state'ini kullanacağımız için
+  // buradaki 'user' state'ini 'setUserState' olarak değiştirmeye gerek kalmadı,
+  // ancak karışıklığı önlemek için 'user' yerine 'localUserState' gibi bir isim verebiliriz
+  // veya AuthContext'ten gelen 'user'ı kullanabiliriz.
+  // Burada 'user' state'i yerine 'setUserState' kullanılmıştı, onu kaldırıp
+  // AuthContext'ten gelen 'user'ı kullanacağız.
+  // const [user, setUserState] = useState<any | null>(null); // Bu satırı kaldırdık
+
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [username, setUsername] = useState<string>('');
@@ -57,7 +111,8 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ navigation }) => {
   const [rememberMe, setRememberMe] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
-  const { setTokens, setUser } = useAuth();
+  // AuthContext'ten gelen clearAuth'ı kullanıyoruz, yerel tanımı kaldırıldı
+  // const clearAuth = useCallback(() => { ... }, []); // Bu satır kaldırıldı
 
   const handleSignUp = async () => {
     if (!email || !password || !username) {
@@ -219,165 +274,164 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ navigation }) => {
     }
   };
 
-  if (showConfirmation) {
-    return (
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Hesap Doğrulama</Text>
-        </View>
-        <Text style={styles.emailText}>Kullanıcı Adı: {lastRegisteredUsername}</Text>
-        <Text style={styles.infoText}>E-postanıza gönderilen 6 haneli kodu girin:</Text>
-        <TextInput
-          placeholder="Doğrulama Kodu (6 haneli)"
-          value={confirmationCode}
-          onChangeText={setConfirmationCode}
-          style={styles.input}
-          keyboardType="number-pad"
-          maxLength={6}
-        />
-        <TouchableOpacity
-          style={[styles.button, styles.confirmButton]}
-          onPress={handleConfirmSignUp}
-          disabled={loading}
-        >
-          <Text style={styles.buttonText}>
-            {loading ? "Doğrulanıyor..." : "Doğrula"}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleResendCode} disabled={loading}>
-          <Text style={styles.link}>Kodu Tekrar Gönder</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => {
-            setShowConfirmation(false);
-            setConfirmationCode('');
-          }}
-        >
-          <Text style={styles.link}>Geri Dön</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    );
-  }
-
-  if (showSignUp) {
-    return (
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Hesap Oluştur</Text>
-        </View>
-        <Text style={styles.infoText}>Lütfen bilgilerinizi giriniz.</Text>
-        <TextInput
-          placeholder="Emailiniz"
-          value={email}
-          onChangeText={setEmail}
-          style={styles.input}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <TextInput
-          placeholder="Kullanıcı Adı"
-          value={username}
-          onChangeText={setUsername}
-          style={styles.input}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <View style={styles.passwordContainer}>
-          <TextInput
-            placeholder="Şifre"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            style={[styles.input, styles.passwordInput]}
-            autoCapitalize="none"
-          />
-          <TouchableOpacity
-            style={styles.eyeIcon}
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            <Text>{showPassword ? "🙈" : "👁️"}</Text>
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity
-          style={[styles.button, styles.signUpButton]}
-          onPress={handleSignUp}
-          disabled={loading}
-        >
-          <Text style={styles.buttonText}>
-            {loading ? "Kayıt..." : "Kaydet ve Devam Et"}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => {
-            setShowSignUp(false);
-            setEmail('');
-            setUsername('');
-            setPassword('');
-          }}
-        >
-          <Text style={styles.link}>Back to Login</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    );
-  }
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Deprem Yardım Sistemi</Text>
-      </View>
-      <Text style={styles.infoText}>Deprem sistem giriş sayfası.</Text>
-      <TextInput
-        placeholder="Kullanınıc Adı ya da  Email"
-        value={username}
-        onChangeText={setUsername}
-        style={styles.input}
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
-      <View style={styles.passwordContainer}>
-        <TextInput
-          placeholder="Şifre"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!showPassword}
-          style={[styles.input, styles.passwordInput]}
-          autoCapitalize="none"
-        />
-        <TouchableOpacity
-          style={styles.eyeIcon}
-          onPress={() => setShowPassword(!showPassword)}
-        >
-          <Text>{showPassword ? "🙈" : "👁️"}</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.checkboxContainer}>
-        <TouchableOpacity
-          onPress={() => setRememberMe(!rememberMe)}
-          style={styles.checkbox}
-        >
-          <Text>{rememberMe ? "✅" : "⬜"}</Text>
-        </TouchableOpacity>
-        <Text style={styles.checkboxText}>Beni Hatırla</Text>
-      </View>
-      <TouchableOpacity
-        style={[styles.button, styles.loginButton]}
-        onPress={handleSignIn}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? "Giriş..." : "Login Account"}
-        </Text>
-      </TouchableOpacity>
-      <View style={styles.linksContainer}>
-        <TouchableOpacity onPress={() => Alert.alert('Info', 'Şifre sıfırlama özelliği yakında eklenecek.')}>
-          <Text style={styles.link}>Şifremi unuttum?</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setShowSignUp(true)}>
-          <Text style={styles.link}>Kayıt Ol</Text>
-        </TouchableOpacity>
-      </View>
+      {showConfirmation ? (
+        // Hesap Doğrulama Ekranı
+        <>
+          <View style={styles.header}>
+            <Text style={styles.title}>Hesap Doğrulama</Text>
+          </View>
+          <Text style={styles.emailText}>Kullanıcı Adı: {lastRegisteredUsername}</Text>
+          <Text style={styles.infoText}>E-postanıza gönderilen 6 haneli kodu girin:</Text>
+          <TextInput
+            placeholder="Doğrulama Kodu (6 haneli)"
+            value={confirmationCode}
+            onChangeText={setConfirmationCode}
+            style={styles.input}
+            keyboardType="number-pad"
+            maxLength={6}
+          />
+          <TouchableOpacity
+            style={[styles.button, styles.confirmButton]}
+            onPress={handleConfirmSignUp}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? "Doğrulanıyor..." : "Doğrula"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleResendCode} disabled={loading}>
+            <Text style={styles.link}>Kodu Tekrar Gönder</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              setShowConfirmation(false);
+              setConfirmationCode('');
+            }}
+          >
+            <Text style={styles.link}>Geri Dön</Text>
+          </TouchableOpacity>
+        </>
+      ) : showSignUp ? (
+        // Hesap Oluşturma Ekranı
+        <>
+          <View style={styles.header}>
+            <Text style={styles.title}>Hesap Oluştur</Text>
+          </View>
+          <Text style={styles.infoText}>Lütfen bilgilerinizi giriniz.</Text>
+          <TextInput
+            placeholder="Emailiniz"
+            value={email}
+            onChangeText={setEmail}
+            style={styles.input}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <TextInput
+            placeholder="Kullanıcı Adı"
+            value={username}
+            onChangeText={setUsername}
+            style={styles.input}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              placeholder="Şifre"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              style={[styles.input, styles.passwordInput]}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={styles.eyeIcon}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Text>{showPassword ? "🙈" : "👁️"}</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={[styles.button, styles.signUpButton]}
+            onPress={handleSignUp}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? "Kayıt..." : "Kaydet ve Devam Et"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              setShowSignUp(false);
+              setEmail('');
+              setUsername('');
+              setPassword('');
+            }}
+          >
+            <Text style={styles.link}>Back to Login</Text>
+          </TouchableOpacity>
+        </>
+      ) : (
+        // Giriş Ekranı
+        <>
+          <View style={styles.header}>
+            <Text style={styles.title}>Deprem Yardım Sistemi</Text>
+          </View>
+          <Text style={styles.infoText}>Deprem sistem giriş sayfası.</Text>
+          <TextInput
+            placeholder="Kullanınıc Adı ya da Email"
+            value={username}
+            onChangeText={setUsername}
+            style={styles.input}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              placeholder="Şifre"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              style={[styles.input, styles.passwordInput]}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={styles.eyeIcon}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Text>{showPassword ? "🙈" : "👁️"}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.checkboxContainer}>
+            <TouchableOpacity
+              onPress={() => setRememberMe(!rememberMe)}
+              style={styles.checkbox}
+            >
+              <Text>{rememberMe ? "✅" : "⬜"}</Text>
+            </TouchableOpacity>
+            <Text style={styles.checkboxText}>Beni Hatırla</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.button, styles.loginButton]}
+            onPress={handleSignIn}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? "Giriş..." : "Login Account"}
+            </Text>
+          </TouchableOpacity>
+          <View style={styles.linksContainer}>
+            <TouchableOpacity onPress={() => Alert.alert('Info', 'Şifre sıfırlama özelliği yakında eklenecek.')}>
+              <Text style={styles.link}>Şifremi unuttum?</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowSignUp(true)}>
+              <Text style={styles.link}>Kayıt Ol</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
     </ScrollView>
   );
 };

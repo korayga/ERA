@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { StyleSheet, View, Text, TouchableOpacity, TextInput, Modal, FlatList, Button } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, TextInput, Alert, Modal, FlatList, Button } from 'react-native';
 import MapView, { Marker, UrlTile, LongPressEvent } from 'react-native-maps';
 import { Point, PointType } from '../../types/Point';
 import { typeOptions, fetchPoints as fetchPointsFromApi, createPoint as createPointApi, getPinColor } from '../func/fetch';
@@ -15,6 +15,7 @@ import { useAuth } from './AuthScreen';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/types';
 import { TokenManager } from '../../types/TokenManager';
+import { signOut } from 'aws-amplify/auth';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -45,8 +46,8 @@ const getRadius = (lat1: number, lon1: number, lat2: number, lon2: number): numb
   return radius;
 };
 
-
 const Home: React.FC = () => {
+  const { setUser } = useAuth();
   const { accessToken, idToken, user } = useAuth();
   const navigation = useNavigation<NavigationProp>();
 
@@ -54,36 +55,15 @@ const Home: React.FC = () => {
   const accessTokenValue = accessToken || null;
   const idTokenValue = idToken || null;
   TokenManager.setIdToken(idTokenValue);
-
-  // Örnek: Token'ları başka bir fonksiyonda kullanma
-  const useTokensInApiCall = async () => {
-    if (accessTokenValue && idTokenValue) {
-      try {
-        console.log('API çağrısı için kullanılan token\'lar:');
-        console.log('Access Token:', accessTokenValue);
-        console.log('ID Token:', idTokenValue);
-      } catch (error) {
-        console.error('API çağrısı hatası:', error);
-      }
-    } else {
-      console.log('Token\'lar eksik, API çağrısı yapılamadı.');
-    }
-  };
+  
 
   // Token'ları kontrol eden useEffect
   useEffect(() => {
     if (accessTokenValue && idTokenValue) {
-      console.log('Token\'lar alındı:', { accessTokenValue, idTokenValue });
       // useTokensInApiCall(); // İsterseniz burada çağırabilirsiniz
     }
   }, [accessTokenValue, idTokenValue]);
 
-  const initialRegion = {
-    latitude: 41.0082,
-    longitude: 28.9784,
-    latitudeDelta: 0.0922,
-    longitudeDelta: 0.0421,
-  };
 
   const getPrettyTypeName = (type: PointType | string, description: string): string => {
     switch (type) {
@@ -129,7 +109,6 @@ const Home: React.FC = () => {
         longitude: loc.coords.longitude,
       });
     } catch (error) {
-      console.error('Konum alınamadı', error);
       setMessage('Konum alınamadı');
     }
   };
@@ -150,7 +129,6 @@ const Home: React.FC = () => {
       setRecording(recording);
       setMessage('Kayıt başladı');
     } catch (err) {
-      console.error('Kayıt başlatılamadı', err);
       setMessage('Kayıt başlatılamadı');
     }
   };
@@ -195,7 +173,6 @@ const Home: React.FC = () => {
       const loadedPoints = await fetchPointsFromApi(region, radius);
       setPoints(loadedPoints);
     } catch (err) {
-      console.error('fetchPoints hata:', err);
     }
   };
 
@@ -204,9 +181,15 @@ const Home: React.FC = () => {
   }, 1000);
 
   const handleLongPress = (event: LongPressEvent) => {
-    const { coordinate } = event.nativeEvent;
-    setNewCoord(coordinate);
-    setModalVisible(true);
+    if(!idToken){
+      Alert.alert("Lütfen Giriş yapınız!")
+      navigation.navigate("Auth", { screen: 'Login' })
+    }
+    else{
+      const { coordinate } = event.nativeEvent;
+      setNewCoord(coordinate);
+      setModalVisible(true);
+    }
   };
 
   const handleSavePoint = async () => {
@@ -231,7 +214,17 @@ const Home: React.FC = () => {
       setDescription('');
       setSelectedType(PointType.diger);
     } catch (error) {
-      console.error('Error creating point:', error);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      TokenManager.setIdToken(null); // To  ken'ları sıfırla
+      setUser(null); // Kullanıcıyı sıfırla
+      setMessage('Çıkış yapıldı!');
+    } catch (error) {
+      setMessage('Çıkış yapılamadı, lütfen tekrar deneyin.');
     }
   };
 
@@ -241,16 +234,18 @@ const Home: React.FC = () => {
         style={{
           position: 'absolute',
           top: '5%',
-          right: '3%',
           alignSelf: 'flex-end',
-          backgroundColor: 'green',
+          backgroundColor: '#000000',
           padding: 12,
           borderRadius: 8,
           zIndex: 10,
+          right: '3%', // Butonun sağda olması için eklendi
         }}
-        onPress={() => navigation.navigate('Auth', { screen: 'Login' })}
+        onPress={() => (idToken ? handleSignOut() : navigation.navigate('Auth', { screen: 'Login'}))}
       >
-        <Text style={{ color: '#fff', fontWeight: 'bold' }}>Giriş Yap</Text>
+        <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>
+          {idToken ? 'Çıkış Yap' : 'Giriş Yap'}
+        </Text>
       </TouchableOpacity>
       <MapView
         style={{ width: '100%', height: '100%', }}
@@ -465,5 +460,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
 
 export default Home;

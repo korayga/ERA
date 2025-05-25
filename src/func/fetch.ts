@@ -1,17 +1,9 @@
 import { Coordinate } from '../../types/Coordinate';
 import { Point, PointType } from '../../types/Point';
 import { TokenManager } from '../../types/TokenManager';
-import { Ionicons } from '@expo/vector-icons';
-
-
-
-
 
 const API_BASE_URL = 'https://yqu8uvgelk.execute-api.eu-central-1.amazonaws.com/v1';
 const TOKEN = TokenManager.getIdToken();
-
-
-
 
 export const typeOptions = [
   { label: 'Yemek', value: PointType.gida },
@@ -30,13 +22,6 @@ export const awsTypeMap = {
   [PointType.insan]: "insan",
   [PointType.diger]: "diger",
 };
-
-interface Region {
-  latitude: number;
-  longitude: number;
-  latitudeDelta: number;
-  longitudeDelta: number;
-}
 
 interface CreatePointData {
   coordinate: { latitude: number; longitude: number };
@@ -70,7 +55,6 @@ export async function fetchPoints(center : Coordinate, radius: number): Promise<
   }
 }
 
-
 export async function sendVoice(data: string, latitude: number, longitude: number): Promise<any> {
   try {
     const response = await fetch(`${API_BASE_URL}/acil-ses`, {
@@ -96,8 +80,6 @@ export async function sendVoice(data: string, latitude: number, longitude: numbe
     throw error;
   }
 }
-
-
 
 export async function createPoint(data: CreatePointData): Promise<any> {
   try {
