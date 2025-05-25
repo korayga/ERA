@@ -6,7 +6,7 @@
 
 # Tanıtım
 
-Depremler yalnızca fiziksel yıkıma yol açmakla kalmaz, aynı zamanda bilgi kirliliği, iletişim kopukluğu ve organizasyonel dağınıklık gibi ikincil krizleri de beraberinde getirir. 6 Şubat 2023'te meydana gelen Kahramanmaraş merkezli depremler bu durumu acı şekilde gözler önüne sermiştir. Bu gerçeklikten yola çıkarak geliştirilen **ERA (Earthquake Relief Assistant)**, afet anında ve sonrasında hayat kurtaracak verileri toplayan, işleyen ve sahaya sunan bir dijital çözüm sunar.
+Depremler yalnızca fiziksel yıkıma yol açmakla kalmaz, aynı zamanda bilgi kirliliği, iletişim kopukluğu ve organizasyonel dağınıklık gibi ikincil krizleri de beraberinde getirir. 6 Şubat 2023'te meydana gelen Kahramanmaraş merkezli depremler bu durumu acı şekilde gözler önüne sermiştir. Bu gerçeklikten yola çıkarak geliştirilen **ERA (Earthquake Relief Assistant)**, afet anında ve sonrasında hayat kurtaracak verileri toplayan, işleyen ve sahaya sunan bir dijital çözüm sunar. [Detaylı rapor için tıklayınız](https://github.com/korayga/ERA/blob/main/RAPOR_v2.pdf)
 
 # Özellikler
 
