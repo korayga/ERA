@@ -24,7 +24,7 @@
     "expo-location": "~18.1.5",
     "expo-permissions": "^14.4.0",
     "expo-status-bar": "~2.2.3",
-    "react": "^19.0.0",
+    "react": "19.0.0",
     "react-native": "^0.79.2",
     "react-native-maps": "1.20.1",
     "react-native-pager-view": "6.7.1",

@@ -62,8 +62,6 @@ export class Point {
   static jsonToPoint(json: pointGETDTO): Point {
     const typeKey = json.type.toLowerCase() || 'OTHER';
     const typeEnumValue = PointType[typeKey as keyof typeof PointType] || PointType.diger;
-    console.log('typeEnumValue:', typeEnumValue);
-    console.log('typeKey:', typeKey);
     return new Point(
       uuid.v4(),
       {

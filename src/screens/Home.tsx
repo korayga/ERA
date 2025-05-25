@@ -37,11 +37,12 @@ const getMapBoundaries = (region: {
 
 const getRadius = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
   let radius = Math.sqrt(Math.pow(lat2 - lat1, 2) + Math.pow(lon2 - lon1, 2)) * 10;
+  radius = 2 * Math.log(4 * radius)
   radius = Math.ceil(radius);
   if (radius >= 6) {
     return 5;
   }
-  return radius;
+  return radius;
 };
 
 
@@ -105,7 +106,7 @@ const Home: React.FC = () => {
 
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [message, setMessage] = useState('');
-  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [location, setLocation] = useState<{ latitude: number; longitude: number }>({"latitude": 41.0082,"longitude": 28.9784});
 
   useEffect(() => {
     (async () => {
@@ -164,7 +165,7 @@ const Home: React.FC = () => {
       setRecording(null);
       setMessage('Kayıt tamamlandı.');
 
-      if (uri && location && accessTokenValue) {
+      if (uri && location ) {
         const base64 = await FileSystem.readAsStringAsync(uri, {
           encoding: FileSystem.EncodingType.Base64,
         });
@@ -239,9 +240,10 @@ const Home: React.FC = () => {
       <TouchableOpacity
         style={{
           position: 'absolute',
-          top: 20,
+          top: '5%',
+          right: '3%',
           alignSelf: 'flex-end',
-          backgroundColor: '#007AFF',
+          backgroundColor: 'green',
           padding: 12,
           borderRadius: 8,
           zIndex: 10,
@@ -251,8 +253,8 @@ const Home: React.FC = () => {
         <Text style={{ color: '#fff', fontWeight: 'bold' }}>Giriş Yap</Text>
       </TouchableOpacity>
       <MapView
-        style={{ width: '100%', height: '100%' }}
-        initialRegion={initialRegion}
+        style={{ width: '100%', height: '100%', }}
+        initialRegion={{latitude: location?.latitude,longitude: location?.longitude,"latitudeDelta" : 2,"longitudeDelta" : 2}}
         onLongPress={handleLongPress}
         onRegionChangeComplete={(region) => {
           const bounds = getMapBoundaries(region);
@@ -280,13 +282,17 @@ const Home: React.FC = () => {
             }}
           />
         ))}
-      </MapView>
+      </MapView>      
       <View style={styles.recordingContainer}>
-        <Button
-          title={recording ? 'Kaydı Durdur' : 'Kayıt Başlat'}
+        <TouchableOpacity
+          style={styles.recordButton}
           onPress={recording ? stopRecording : startRecording}
-        />
-        <Text style={styles.text}>{message}</Text>
+        >
+          <Text style={styles.recordButtonText}>{recording ? 'Kaydı Durdur' : 'SOS'}</Text>
+        </TouchableOpacity>
+        {recording && message ? (
+          <Text style={styles.text}>{message}</Text>
+        ) : null}
       </View>
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
@@ -298,22 +304,34 @@ const Home: React.FC = () => {
               value={description}
               onChangeText={setDescription}
               placeholder="Kısa açıklama gir"
+              placeholderTextColor="#888"
             />
             <Text style={styles.label}>Tip Seç</Text>
             <FlatList
-              data={typeOptions}
-              keyExtractor={(item) => item.value}
-              renderItem={({ item }) => (
+            data={typeOptions}
+            keyExtractor={(item) => item.value}
+            renderItem={({ item }) => {
+              const isSelected = selectedType === item.value;
+              const backgroundColor = isSelected
+                ? getPinColor(item.value)
+                : '#f0f0f0';
+
+              const textColor = isSelected ? '#fff' : '#000';
+
+              return (
                 <TouchableOpacity
-                  style={[styles.typeOption, selectedType === item.value && styles.selectedType]}
+                  style={[
+                    styles.typeOption,
+                    { backgroundColor },
+                  ]}
                   onPress={() => setSelectedType(item.value)}
                 >
-                  <Text style={{ color: selectedType === item.value ? '#fff' : '#000' }}>
-                    {item.label}
-                  </Text>
+                  <Text style={{ color: textColor }}>{item.label}</Text>
                 </TouchableOpacity>
-              )}
-            />
+              );
+            }}
+          />
+
             <TouchableOpacity style={styles.saveButton} onPress={handleSavePoint}>
               <Text style={styles.saveButtonText}>Kaydet</Text>
             </TouchableOpacity>
@@ -350,16 +368,31 @@ const Home: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  map: { width: '10%', height: '10%' },
+  container: { 
+    flex: 1,
+    backgroundColor: '#000' 
+  },
+  map: { 
+    width: '100%', 
+    height: '100%' 
+  },
   recordingContainer: {
     position: 'absolute',
     bottom: 30,
     alignSelf: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: '#ff0000',
     borderRadius: 10,
     padding: 10,
     alignItems: 'center',
+  },
+  recordButton: {
+    padding: 10,
+    borderRadius: 5,
+  },
+  recordButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   closeIcon: {
     position: 'absolute',
@@ -371,17 +404,18 @@ const styles = StyleSheet.create({
   closeIconText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#444',
+    color: '#000',
   },
   text: {
     marginTop: 8,
     fontSize: 14,
     textAlign: 'center',
+    color: '#fff',
   },
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
   modalContent: {
     backgroundColor: '#fff',
@@ -394,29 +428,33 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 10,
+    color: '#000',
   },
   label: {
     marginTop: 10,
     fontWeight: 'bold',
+    color: '#000',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#000',
     padding: 8,
     marginTop: 5,
     borderRadius: 6,
+    backgroundColor: '#fff',
+    color: '#000',
   },
   typeOption: {
     padding: 10,
-    backgroundColor: '#eee',
+    backgroundColor: '#f0f0f0',
     marginVertical: 4,
     borderRadius: 5,
   },
   selectedType: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#000',
   },
   saveButton: {
-    backgroundColor: '#28a745',
+    backgroundColor: '#000',
     padding: 12,
     marginTop: 15,
     borderRadius: 8,

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { View, TextInput, Button, Text, Alert, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { signUp, signIn, confirmSignUp, resendSignUpCode, fetchAuthSession } from 'aws-amplify/auth';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '../navigation/types'; // RootStackParamList kullanıyoruz
+import { RootStackParamList } from '../navigation/types';
 
 type AuthScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -54,8 +54,10 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ navigation }) => {
   const [showConfirmation, setShowConfirmation] = useState<boolean>(false);
   const [showSignUp, setShowSignUp] = useState<boolean>(false);
   const [lastRegisteredUsername, setLastRegisteredUsername] = useState<string>('');
+  const [rememberMe, setRememberMe] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
 
-  const { setTokens, setUser, user } = useAuth();
+  const { setTokens, setUser } = useAuth();
 
   const handleSignUp = async () => {
     if (!email || !password || !username) {
@@ -220,7 +222,9 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ navigation }) => {
   if (showConfirmation) {
     return (
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Hesap Doğrulama</Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>Hesap Doğrulama</Text>
+        </View>
         <Text style={styles.emailText}>Kullanıcı Adı: {lastRegisteredUsername}</Text>
         <Text style={styles.infoText}>E-postanıza gönderilen 6 haneli kodu girin:</Text>
         <TextInput
@@ -231,25 +235,26 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ navigation }) => {
           keyboardType="number-pad"
           maxLength={6}
         />
-        <Button
-          title={loading ? "Doğrulanıyor..." : "Doğrula"}
+        <TouchableOpacity
+          style={[styles.button, styles.confirmButton]}
           onPress={handleConfirmSignUp}
           disabled={loading}
-        />
-        <View style={{ height: 10 }} />
-        <Button
-          title="Kodu Tekrar Gönder"
-          onPress={handleResendCode}
-          disabled={loading}
-        />
-        <View style={{ height: 10 }} />
-        <Button
-          title="Geri Dön"
+        >
+          <Text style={styles.buttonText}>
+            {loading ? "Doğrulanıyor..." : "Doğrula"}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleResendCode} disabled={loading}>
+          <Text style={styles.link}>Kodu Tekrar Gönder</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           onPress={() => {
             setShowConfirmation(false);
             setConfirmationCode('');
           }}
-        />
+        >
+          <Text style={styles.link}>Geri Dön</Text>
+        </TouchableOpacity>
       </ScrollView>
     );
   }
@@ -257,9 +262,12 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ navigation }) => {
   if (showSignUp) {
     return (
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Kayıt Ol</Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>Hesap Oluştur</Text>
+        </View>
+        <Text style={styles.infoText}>Lütfen bilgilerinizi giriniz.</Text>
         <TextInput
-          placeholder="E-posta"
+          placeholder="Emailiniz"
           value={email}
           onChangeText={setEmail}
           style={styles.input}
@@ -275,67 +283,101 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ navigation }) => {
           autoCapitalize="none"
           autoCorrect={false}
         />
-        <TextInput
-          placeholder="Şifre"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          style={styles.input}
-          autoCapitalize="none"
-        />
-        <Button
-          title={loading ? "Kayıt..." : "Kayıt Ol"}
+        <View style={styles.passwordContainer}>
+          <TextInput
+            placeholder="Şifre"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            style={[styles.input, styles.passwordInput]}
+            autoCapitalize="none"
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Text>{showPassword ? "🙈" : "👁️"}</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          style={[styles.button, styles.signUpButton]}
           onPress={handleSignUp}
           disabled={loading}
-        />
-        <View style={{ height: 10 }} />
-        <Button
-          title="Geri Dön"
+        >
+          <Text style={styles.buttonText}>
+            {loading ? "Kayıt..." : "Kaydet ve Devam Et"}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           onPress={() => {
             setShowSignUp(false);
             setEmail('');
             setUsername('');
             setPassword('');
           }}
-        />
+        >
+          <Text style={styles.link}>Back to Login</Text>
+        </TouchableOpacity>
       </ScrollView>
     );
   }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Deprem Yardım - Giriş</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Deprem Yardım Sistemi</Text>
+      </View>
+      <Text style={styles.infoText}>Deprem sistem giriş sayfası.</Text>
       <TextInput
-        placeholder="Kullanıcı Adı veya E-posta"
+        placeholder="Kullanınıc Adı ya da  Email"
         value={username}
         onChangeText={setUsername}
         style={styles.input}
         autoCapitalize="none"
         autoCorrect={false}
       />
-      <TextInput
-        placeholder="Şifre"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={styles.input}
-        autoCapitalize="none"
-      />
-      <Button
-        title={loading ? "Giriş..." : "Giriş Yap"}
+      <View style={styles.passwordContainer}>
+        <TextInput
+          placeholder="Şifre"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!showPassword}
+          style={[styles.input, styles.passwordInput]}
+          autoCapitalize="none"
+        />
+        <TouchableOpacity
+          style={styles.eyeIcon}
+          onPress={() => setShowPassword(!showPassword)}
+        >
+          <Text>{showPassword ? "🙈" : "👁️"}</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.checkboxContainer}>
+        <TouchableOpacity
+          onPress={() => setRememberMe(!rememberMe)}
+          style={styles.checkbox}
+        >
+          <Text>{rememberMe ? "✅" : "⬜"}</Text>
+        </TouchableOpacity>
+        <Text style={styles.checkboxText}>Beni Hatırla</Text>
+      </View>
+      <TouchableOpacity
+        style={[styles.button, styles.loginButton]}
         onPress={handleSignIn}
         disabled={loading}
-      />
-      <View style={{ height: 10 }} />
-      <TouchableOpacity onPress={() => setShowSignUp(true)}>
-        <Text style={styles.signUpText}>
-          Hesabın yoksa <Text style={styles.signUpLink}>kaydol</Text>
+      >
+        <Text style={styles.buttonText}>
+          {loading ? "Giriş..." : "Login Account"}
         </Text>
       </TouchableOpacity>
-      <Text style={styles.infoText}>
-        🔹 Giriş: Kullanıcı Adı/E-posta + Şifre{'\n'}
-        🔹 Kayıt: E-posta + Kullanıcı Adı + Şifre
-      </Text>
+      <View style={styles.linksContainer}>
+        <TouchableOpacity onPress={() => Alert.alert('Info', 'Şifre sıfırlama özelliği yakında eklenecek.')}>
+          <Text style={styles.link}>Şifremi unuttum?</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowSignUp(true)}>
+          <Text style={styles.link}>Kayıt Ol</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 };
@@ -345,47 +387,94 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     padding: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F5F5F5',
+  },
+  header: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 20,
+    marginBottom: 20,
+    borderRadius: 10,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 20,
     textAlign: 'center',
-    color: '#333',
+    color: '#FFFFFF',
   },
-  input: {
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    marginBottom: 15,
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    fontSize: 16,
+  infoText: {
+    fontSize: 14,
+    color: '#666666',
+    textAlign: 'center',
+    marginBottom: 20,
   },
   emailText: {
     fontSize: 16,
     marginBottom: 15,
     textAlign: 'center',
     fontWeight: '600',
-    color: '#333',
+    color: '#333333',
   },
-  infoText: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 20,
-    lineHeight: 16,
+  input: {
+    height: 50,
+    borderBottomWidth: 1,
+    borderColor: '#007AFF',
+    paddingHorizontal: 10,
+    marginBottom: 20,
+    fontSize: 16,
+    color: '#333333',
   },
-  signUpText: {
+  passwordContainer: {
+    position: 'relative',
+    marginBottom: 20,
+  },
+  passwordInput: {
+    paddingRight: 40,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 10,
+    top: 15,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  checkbox: {
+    marginRight: 10,
+  },
+  checkboxText: {
     fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
+    color: '#666666',
   },
-  signUpLink: {
-    color: '#007AFF',
+  button: {
+    paddingVertical: 15,
+    borderRadius: 25,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  loginButton: {
+    backgroundColor: '#007AFF',
+  },
+  signUpButton: {
+    backgroundColor: '#339CFF',
+  },
+  confirmButton: {
+    backgroundColor: '#339CFF',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  linksContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  link: {
+    fontSize: 14,
+    color: '#005BB5',
     fontWeight: '600',
   },
 });

@@ -1,9 +1,13 @@
 import { Coordinate } from '../../types/Coordinate';
 import { Point, PointType } from '../../types/Point';
 import { TokenManager } from '../../types/TokenManager';
+import { Ionicons } from '@expo/vector-icons';
 
 
-const API_BASE_URL = 'https://f1o8ov5zw7.execute-api.eu-central-1.amazonaws.com/v1';
+
+
+
+const API_BASE_URL = 'https://yqu8uvgelk.execute-api.eu-central-1.amazonaws.com/v1';
 const TOKEN = TokenManager.getIdToken();
 
 
@@ -45,33 +49,6 @@ const headers = {
   'Authorization': `${ TOKEN || ''}`
 };
 
-export const fetchPointsFromApi = async (region: Coordinate, radius: number, accessToken: string | null) => {
-  if (!accessToken) {
-    throw new Error('Access token eksik');
-  }
-  // Örnek API çağrısı
-  const response = await fetch(API_BASE_URL, {
-    headers: headers
-  });
-  const data = await response.json();
-  return data.points; // API yanıtına göre uyarlayın
-};
-
-export const createPointApi = async (
-  point: { lat: Coordinate["latitude"]; lng: Coordinate["longitude"]; type: PointType; description: string },
-  accessToken: string | null
-) => {
-  if (!accessToken) {
-    throw new Error('Access token eksik');
-  }
-  // Örnek API çağrısı
-  const response = await fetch(API_BASE_URL, {
-    method: 'POST',
-    headers: headers,
-    body: JSON.stringify(point),
-  });
-  return await response.json();
-};
 
 export async function fetchPoints(center : Coordinate, radius: number): Promise<Point[]> {
   try {
@@ -81,7 +58,6 @@ export async function fetchPoints(center : Coordinate, radius: number): Promise<
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const response = await res.json();
-
     const points = [];
     for(const item of response.data) {
         console.log('Fetched point:', item);
@@ -153,18 +129,18 @@ export async function createPoint(data: CreatePointData): Promise<any> {
 export function getPinColor(type: PointType): string {
   switch (type) {
     case PointType.gida:
-      return 'orange';
+      return 'purple';
     case PointType.barinma:
       return 'blue';
     case PointType.tibbi_yardim:
       return 'green';
     case PointType.yikim:
-      return 'gray';
+      return 'orange';
     case PointType.insan:
-      return 'purple';
+      return 'red';
     case PointType.diger:
-      return 'red';
+      return 'grey';
     default:
-      return 'red';
+      return 'grey';
   }
 }
